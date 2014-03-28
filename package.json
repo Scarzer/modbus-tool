@@ -1,0 +1,27 @@
+{
+    "name"          : "modbus-tool",
+    "preferGlobal"  : true,
+    "version"       : "0.1.0",
+    "author"        : "Stefan Poeter <stefan.poeter@cloud-automation.de>",
+    "description"   : "A simple collection of tools to work with the modbus protocol in a terminal.",
+    "bin"           : {
+        "modbus-tool": "./bin/modbus-tool"
+    },
+    "repository"    : {
+        "type"  : "git",
+        "url"   : "https://github.com/cloud-automation/modbus-tool.git"
+    },
+    "keywords"      : [
+        "modbus",
+        "client",
+        "tool"
+    ],
+    "dependencies"  : {
+        "commander" : "2.1.x",
+        "modbus"    : "0.2.x"
+    },
+    "license"       : "MIT",
+    "engines"       : {
+        "node": ">=0.6"
+    } 
+}

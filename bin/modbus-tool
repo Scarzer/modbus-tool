@@ -1,0 +1,213 @@
+#! /usr/local/bin/node
+
+var jsModbus    = require('jsmodbus'),
+    program     = require('commander');
+
+
+
+program
+    .version('0.0.1')
+    .description('Simple command line tool to read and write modbus register.')
+    .usage('[options] command')
+    .option('-i, --interval [interval]', 'Polling interval in ms.', parseInt)
+    .option('-p, --port [port]', 'Set the servers port.', parseInt)
+    .option('-h, --host [host]', 'Set the servers host.')
+    .option('-v, --verbose', 'Show debug messages.');
+
+program
+    .command('readcoils [start] [count]')
+    .description('Read Coils from the server periodically.');
+
+program
+    .command('readregisters [start] [count]')
+    .description('Read Registers from the server periodically.');
+
+program
+    .command('writesinglecoil [reg] [value]')
+    .description('Write Single Coil to the server register once.');
+
+program
+    .command('writesingleregister [reg] [value]')
+    .description('Write Single Register to the server register once.');
+
+program.parse(process.argv);
+
+if (program.args.length === 0) {
+
+    program.help();
+    process.exit(1);
+
+}
+
+var port    = program.port || 512, 
+    host    = program.host || 'localhost',
+    pause   = program.interval || 1000,
+    intv,
+    client;
+
+if ( program.verbose ) {  
+
+    // override logger function
+    jsModbus.setLogger(function (msg) { console.log((new Date()) + ' - ' + msg); } );
+
+} else {
+
+    jsModbus.setLogger(function () { });
+
+}
+
+console.log((new Date()) + ' - ' + 'Connecting to ' + host + ':' + port);  
+client  = jsModbus.createTCPClient(port, host);
+
+var readCoils = function (start, count) {
+
+    console.log((new Date())  + ' - ' + 'readCoils (' + start + ', ' + count + ')');
+
+    intv = setInterval(function () {
+    
+        client.readCoils(start, count, function (resp) {
+       
+            console.log((new Date()) + ' - ' + resp.coils);
+
+        });
+    
+    }, pause);
+
+};
+
+var readInputRegisters = function (start, count) {
+
+    console.log((new Date()) + ' - readInputRegisters (' + start + ', ' + count + ')');
+
+    intv = setInterval(function () {
+    
+        client.readInputRegister(start, count, function (resp) {
+       
+            console.log((new Date()) + ' - ' +  resp.register);
+        
+        }, intv);
+    
+    }, pause);
+
+};
+
+var writeSingleCoil = function (reg, value) {
+
+    if (!typeof(value) === 'string') {
+        
+        console.log((new Date()) + ' - Value must be a string (true, 1, false, 0).');
+        client.close();
+        return;
+    
+    }
+
+    if (['true', '0', 'false', '1'].indexOf(value.toLowerCase()) === -1) {
+
+        console.log((new Date()) + ' - Value must be a string (true, 1, false, 0).');
+        client.close();
+        return;
+
+    }
+
+    var val = value === 'true' || value === '1' ? true : false;
+
+    client.writeSingleCoil(reg, val, function (resp, err) {
+
+        if (err) {
+            console.log((new Date() + ' - Something went wrong.'));
+            client.close();
+            return;
+        }
+        
+        console.log((new Date()) + ' - Done.');
+
+        client.close();
+
+    });
+
+};
+
+var writeSingleRegister = function (reg, value) {
+
+    var val;
+
+    try {
+
+        val = parseInt(value);        
+
+    } catch (e) {
+
+        console.log((new Date()) + ' - Value must be an integer.');
+        client.close();
+        return;        
+
+    }
+
+    client.writeSingleRegister(reg, val, function (resp, err) {
+
+        if (err) {
+
+            console.log((new Date()) + ' - Something went wrong.');
+            client.close();
+            return;
+
+        }
+
+        console.log((new Date()) + ' - Done.');
+
+        client.close();
+
+    });
+
+};
+
+client.on('close', function () {
+
+    console.log((new Date()) + ' - Connection terminated.');
+
+    process.exit(1);
+
+});
+
+client.on('error', function () {
+
+    console.log((new Date()) + ' - An error occured.');
+
+});
+
+client.on('connect', function () {
+
+    console.log((new Date()) + ' - Connection successfull.');
+
+    program
+        .command('readcoils [start] [count]')
+        .description('Read Coils from the server periodically.')
+        .action(readCoils);
+
+    program
+        .command('readregisters [start] [count]')
+        .description('Read Registers from the server periodically.')
+        .action(readInputRegisters);
+
+    program
+        .command('writesinglecoil [reg] [value]')
+        .description('Write Single Coil to the server register once.')
+        .action(writeSingleCoil);
+
+program
+    .command('writesingleregister [reg] [value]')
+    .description('Write Single Register to the server register once.')
+    .action(writeSingleRegister);
+
+    program.parse(process.argv);
+
+});
+
+
+process.on('SIGINT', function () {
+
+    clearInterval(intv);
+    client.close();
+
+});
+
